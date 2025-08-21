@@ -1,0 +1,274 @@
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Image → Vector Prompt Generator (Gemini)</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --card:#111827EE; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --accent:#22d3ee; /* cyan-400 */
+      --accent-2:#a78bfa; /* violet-400 */
+      --danger:#ef4444; /* red-500 */
+      --ok:#10b981; /* emerald-500 */
+    }
+    html,body{height:100%;}
+    body{margin:0;background:radial-gradient(1200px 800px at 10% 0%, #1e293b, var(--bg));font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; color:var(--text);}
+    .container{max-width:980px;margin:32px auto;padding:16px;}
+    .title{font-size:28px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+    .subtitle{color:var(--muted);margin-top:4px}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:18px}
+    @media(min-width:900px){.grid{grid-template-columns:1.1fr .9fr}}
+    .card{background:linear-gradient(180deg, #0b1220, #0b1220 60%, #0b1220dd);border:1px solid #233046;border-radius:18px;box-shadow:0 10px 30px #0005;padding:16px}
+    .label{font-size:13px;color:var(--muted);margin-bottom:8px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input[type="text"], input[type="url"], textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #233046;background:#0b1324;color:var(--text);outline:none;box-sizing:border-box}
+    textarea{min-height:130px;resize:vertical;}
+    .btn{appearance:none;border:1px solid #2b3a52;background:linear-gradient(180deg,#15233a,#0e1a2d);color:#e6faff;border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer;transition:.2s;}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px #0006}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .btn-prim{background:linear-gradient(180deg, #0ea5b6, #0284c7); border-color:#0ea5b6}
+    .btn-copy{border-color:#5b21b6;background:linear-gradient(180deg,#7c3aed,#5b21b6)}
+    .btn-danger{border-color:#b91c1c;background:linear-gradient(180deg,#ef4444,#b91c1c)}
+    .pill{padding:6px 10px;border-radius:999px;background:#0b1324;border:1px dashed #2b3a52;color:var(--muted);font-size:12px}
+    .dropzone{position:relative;border:1.5px dashed #334155;border-radius:16px; padding:14px; display:flex; gap:14px; align-items:center; justify-content:center; text-align:center; min-height:180px; background:linear-gradient(180deg,#0b1324,#0a1222)}
+    .dropzone.drag{border-color:var(--accent); box-shadow:0 0 0 3px #22d3ee33 inset}
+    .preview{max-width:100%;max-height:280px;border-radius:14px;border:1px solid #233046}
+    .small{font-size:12px;color:var(--muted)}
+    .ok{color:var(--ok)}
+    .err{color:var(--danger)}
+    .footer{margin-top:18px;color:var(--muted);font-size:12px}
+    kbd{background:#0b1324;border:1px solid #253247;border-radius:6px;padding:2px 6px;font-size:12px}
+    .inline{display:inline-flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">🖼️➡️✨ Image → Vector Prompt Generator <span class="pill">Gemini API</span></div>
+    <div class="subtitle">Blogger-ready, single-file tool. Paste, drag & drop, or upload an image, then generate a <strong>vector icon set</strong> prompt in one click.</div><!-- API Key -->
+<div class="card" id="authCard">
+  <div class="label">🔑 Gemini API Key</div>
+  <div class="row">
+    <input type="text" id="apiKey" placeholder="Enter your Gemini API key (stored locally)" />
+    <button class="btn btn-prim" id="saveKey">Save</button>
+    <button class="btn btn-danger" id="clearKey">Clear</button>
+  </div>
+  <div class="small" id="keyStatus">Key status: <span class="err">not set</span></div>
+</div>
+
+<div class="grid">
+  <!-- LEFT: INPUTS -->
+  <div class="card">
+    <div class="label">1) 🖼️ Image Input (paste / drag & drop / upload / URL)</div>
+    <div class="dropzone" id="dropzone">
+      <div>
+        <div>Paste an image (Ctrl/Cmd+V), drag & drop, or choose a file.</div>
+        <div class="row" style="margin-top:10px">
+          <input type="file" id="fileInput" accept="image/*" />
+          <span class="small">Max ~8MB recommended</span>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input type="url" id="imgUrl" placeholder="…or paste an image URL and click Load"/>
+          <button class="btn" id="loadUrl">Load</button>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <img id="preview" class="preview" alt="Preview will appear here" />
+    </div>
+    <div class="small">Tips: You can also paste directly into the page. The last image shown above is what will be sent to Gemini.</div>
+  </div>
+
+  <!-- RIGHT: INSTRUCTIONS & OUTPUT -->
+  <div class="card">
+    <div class="label">2) 📤 System Instruction (sent with the image)</div>
+    <textarea id="systemPrompt">See the image now make 1 unique high quality vector illustration icon set prompt, where under every prompt have 15 icons its black and white, and isolated white clean background, every icon must be unique and different creative, write prompt in a one line like description with detailed, make prompt shillhoutte type</textarea>
+    <div class="small">You can edit the instruction above if you want a different style.</div>
+
+    <div class="label" style="margin-top:14px">3) ➕ Optional extra hint (goes with the image)</div>
+    <input type="text" id="extraHint" placeholder="(Optional) Add any extra details you want the prompt to emphasize" />
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-prim" id="generate">⚡ Generate Prompt</button>
+      <span id="status" class="small">Ready.</span>
+    </div>
+
+    <div class="label" style="margin-top:14px">4) 🧾 Output</div>
+    <textarea id="output" placeholder="Your prompt will appear here…" readonly></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn btn-copy" id="copyBtn">Copy Prompt</button>
+      <span id="copyMsg" class="small"></span>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  ⚠️ Your API key is stored in <em>localStorage</em> on this device only. Using API keys in client-side code is fine for personal tools, but avoid sharing publicly.
+</div>
+
+  </div>  <script>
+    // ---------- Helpers ----------
+    const $ = sel => document.querySelector(sel);
+    const toBase64 = file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    let currentImage = null; // { mime, dataB64 }
+
+    // ---------- API Key storage ----------
+    const keyInput = $('#apiKey');
+    const keyStatus = $('#keyStatus');
+
+    function refreshKeyStatus(){
+      const has = !!localStorage.getItem('GEMINI_API_KEY');
+      keyStatus.innerHTML = 'Key status: ' + (has ? '<span class="ok">saved</span>' : '<span class="err">not set</span>');
+      keyInput.value = localStorage.getItem('GEMINI_API_KEY') || '';
+    }
+
+    $('#saveKey').addEventListener('click', () => {
+      localStorage.setItem('GEMINI_API_KEY', keyInput.value.trim());
+      refreshKeyStatus();
+    });
+    $('#clearKey').addEventListener('click', () => {
+      localStorage.removeItem('GEMINI_API_KEY');
+      refreshKeyStatus();
+    });
+    refreshKeyStatus();
+
+    // ---------- Image acquisition ----------
+    const dropzone = $('#dropzone');
+    const preview = $('#preview');
+
+    function setPreviewFromBlob(blob){
+      const url = URL.createObjectURL(blob);
+      preview.src = url;
+      currentImage = { mime: blob.type || 'image/png', blob };
+      // also keep a base64 copy for Gemini inline_data
+      toBase64(blob).then(b64 => { currentImage.dataB64 = b64; });
+    }
+
+    // File input
+    $('#fileInput').addEventListener('change', (e)=>{
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      if(!file.type.startsWith('image/')){ alert('Please select an image file.'); return; }
+      setPreviewFromBlob(file);
+    });
+
+    // Paste from clipboard
+    document.addEventListener('paste', (e)=>{
+      if(!e.clipboardData) return;
+      const items = e.clipboardData.items;
+      for(const it of items){
+        if(it.type && it.type.startsWith('image/')){
+          const blob = it.getAsFile();
+          setPreviewFromBlob(blob);
+          e.preventDefault();
+          break;
+        }
+      }
+    });
+
+    // Drag & drop
+    ['dragenter','dragover'].forEach(ev=>dropzone.addEventListener(ev, (e)=>{e.preventDefault(); dropzone.classList.add('drag');}));
+    ['dragleave','drop'].forEach(ev=>dropzone.addEventListener(ev, (e)=>{e.preventDefault(); dropzone.classList.remove('drag');}));
+    dropzone.addEventListener('drop', (e)=>{
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if(file && file.type.startsWith('image/')) setPreviewFromBlob(file);
+    });
+
+    // Load via URL
+    $('#loadUrl').addEventListener('click', async ()=>{
+      const url = $('#imgUrl').value.trim();
+      if(!url) return;
+      try{
+        const res = await fetch(url, {mode:'cors'});
+        const blob = await res.blob();
+        if(!blob.type.startsWith('image/')) throw new Error('URL did not return an image.');
+        setPreviewFromBlob(blob);
+      }catch(err){
+        alert('Failed to load image from URL. Many servers block cross-origin image fetching. Try downloading the image and uploading it here.');
+        console.error(err);
+      }
+    });
+
+    // ---------- Gemini call ----------
+    async function callGemini({apiKey, instruction, extraHint}){
+      if(!currentImage || !currentImage.dataB64){
+        throw new Error('Please provide an image first.');
+      }
+      const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+
+      const parts = [];
+      // Your instruction text (always send)
+      parts.push({ text: instruction });
+      // Optional extra hint
+      if(extraHint && extraHint.trim()) parts.push({ text: '\nExtra hint: ' + extraHint.trim() });
+      // The image itself
+      parts.push({ inline_data: { mime_type: currentImage.mime || 'image/png', data: currentImage.dataB64 }});
+
+      const body = { contents: [{ role: 'user', parts }] };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if(!res.ok){
+        const t = await res.text();
+        throw new Error('Gemini API error: ' + res.status + ' ' + t);
+      }
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('\n').trim();
+      if(!text) throw new Error('No text returned from Gemini.');
+      return text;
+    }
+
+    // ---------- UI actions ----------
+    const status = $('#status');
+    const output = $('#output');
+    const copyMsg = $('#copyMsg');
+
+    $('#generate').addEventListener('click', async ()=>{
+      const apiKey = localStorage.getItem('GEMINI_API_KEY') || keyInput.value.trim();
+      if(!apiKey){ alert('Please enter your Gemini API key first.'); return; }
+      const instruction = $('#systemPrompt').value.trim();
+      const extraHint = $('#extraHint').value.trim();
+
+      status.textContent = 'Generating…';
+      output.value = '';
+      copyMsg.textContent = '';
+      try{
+        const result = await callGemini({apiKey, instruction, extraHint});
+        // Ensure single-line prompt (as requested)
+        const oneLine = result.replace(/\s+/g, ' ').trim();
+        output.value = oneLine;
+        status.textContent = 'Done ✅';
+      }catch(err){
+        console.error(err);
+        status.textContent = 'Error ❌';
+        output.value = (err && err.message) ? err.message : String(err);
+      }
+    });
+
+    $('#copyBtn').addEventListener('click', async ()=>{
+      if(!output.value) return;
+      try{
+        await navigator.clipboard.writeText(output.value);
+        copyMsg.textContent = 'Copied!';
+        setTimeout(()=> copyMsg.textContent='', 1500);
+      }catch{
+        // Fallback
+        output.select();
+        document.execCommand('copy');
+        copyMsg.textContent = 'Copied!';
+        setTimeout(()=> copyMsg.textContent='', 1500);
+      }
+    });
+  </script></body>
+</html>
